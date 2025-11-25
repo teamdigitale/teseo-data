@@ -46,30 +46,30 @@ async function main() {
 			return trace.input?.query;
 		})
 		.filter((q) => q !== undefined);
-	const name = `${Date.now()}-questions.json`;
+	const name = `questions.json`; //${Date.now()}-
 	await Bun.write(`data/${name}`, JSON.stringify(questions, null, 2));
-
-
 
 	const client = new OpenAI();
 
-const response = await client.responses.create({
-		model:process.env.OPENAI_MODEL || "gpt-4o",
-    input:[
-        {"role": "system", "content": "Sei un esperto classificatore di domande per un chatbot interno di un dipartimento digitale collegato a tematiche e servizi legati alle misure PNRR. Il tuo compito è assegnare a ciascuna domanda UNA categoria che riassuma il suo tema principale. Cerca di aggregare e raggruppare il più possibile i temi simili sotto la stessa categoria generale. Evita di usare categorie troppo specifiche: cerca di normalizzare i titoli, utilizzando etichette che possano raggruppare domande anche diverse ma simili (ad esempio: 'Pagamenti', 'Digitalizzazione', 'Assistenza', 'Contratti', 'Cloud', 'Ruoli/Governance', ecc.)"},
-        {
-            "role": "user",
-            "content": `Lista delle domande:  
+	const response = await client.responses.create({
+		model: process.env.OPENAI_MODEL || "gpt-4o",
+		input: [
+			{
+				role: "system",
+				content:
+					"Sei un esperto classificatore di domande per un chatbot interno di un dipartimento digitale collegato a tematiche e servizi legati alle misure PNRR. Il tuo compito è assegnare a ciascuna domanda UNA categoria che riassuma il suo tema principale. Cerca di aggregare e raggruppare il più possibile i temi simili sotto la stessa categoria generale. Evita di usare categorie troppo specifiche: cerca di normalizzare i titoli, utilizzando etichette che possano raggruppare domande anche diverse ma simili (ad esempio: 'Pagamenti', 'Digitalizzazione', 'Assistenza', 'Contratti', 'Cloud', 'Ruoli/Governance', ecc.)",
+			},
+			{
+				role: "user",
+				content: `Lista delle domande:  
 						${questions.join("\n- ")}`,
-        },
-    ],
-});
+			},
+		],
+	});
 
-
-console.log(response.output_text);
+	console.log(response.output_text);
 
 	// results = await model.invoke("Summarize the following questions into categories:", questions);
-
 }
 
 (async () => {
