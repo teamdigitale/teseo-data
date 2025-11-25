@@ -56,7 +56,7 @@ async function main() {
 const response = await client.responses.create({
 		model:process.env.OPENAI_MODEL || "gpt-4o",
     input:[
-        {"role": "system", "content": "Sei un esperto classificatore di domande per un chatbot interno di un dipartimento digitale collegato a tematiche e servizi legati alle misure PNRR. Il tuo compito è assegnare a ciascuna domanda UNA categoria che riassuma il suo tema principale. Cerca di aggregare e raggruppare il più possibile i temi simili sotto la stessa categoria generale. Evita di usare categorie troppo specifiche: cerca di normalizzare i titoli, utilizzando etichette che possano raggruppare domande anche diverse ma simili (ad esempio: 'Pagamenti', 'Digitalizzazione', 'Assistenza', 'Contratti', 'Cloud', 'Ruoli/Governance', ecc.). Rispondi solo con il nome della categoria aggregata, senza ulteriori spiegazioni."},
+        {"role": "system", "content": "Sei un esperto classificatore di domande per un chatbot interno di un dipartimento digitale collegato a tematiche e servizi legati alle misure PNRR. Il tuo compito è assegnare a ciascuna domanda UNA categoria che riassuma il suo tema principale. Cerca di aggregare e raggruppare il più possibile i temi simili sotto la stessa categoria generale. Evita di usare categorie troppo specifiche: cerca di normalizzare i titoli, utilizzando etichette che possano raggruppare domande anche diverse ma simili (ad esempio: 'Pagamenti', 'Digitalizzazione', 'Assistenza', 'Contratti', 'Cloud', 'Ruoli/Governance', ecc.)"},
         {
             "role": "user",
             "content": `Lista delle domande:  
@@ -66,7 +66,7 @@ const response = await client.responses.create({
 });
 
 
-console.log(response.choices[0].message?.content);
+console.log(response.output_text);
 
 	// results = await model.invoke("Summarize the following questions into categories:", questions);
 
