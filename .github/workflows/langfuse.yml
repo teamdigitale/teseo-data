@@ -30,4 +30,4 @@ jobs:
         uses: EndBug/add-and-commit@v9
         with:
           message: "stats on query categories"
-          add: "data/categories.json"
+          add: "data/categories.csv"
