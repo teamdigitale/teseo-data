@@ -29,5 +29,5 @@ jobs:
       - name: Commit
         uses: EndBug/add-and-commit@v9
         with:
-          message: "Aggiunti nuove query da Langfuse"
-          add: "data"
+          message: "lista delle query"
+          add: "../data/questions.json"
