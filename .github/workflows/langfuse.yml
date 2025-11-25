@@ -1,0 +1,25 @@
+name: Langfuse
+
+defaults:
+  run:
+    working-directory: scripts/
+
+on:
+  schedule:
+    - cron: 10 2 * * *
+  workflow_dispatch:
+
+jobs:
+  dataviz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install
+      - name: Run langfuse fetcher
+        run: bun run fetch-langfuse.ts
+        env:
+          LANGFUSE_PUBLIC_KEY:${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY:${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_PROJECT_ID:${{ secrets.LANGFUSE_PROJECT_ID }}
