@@ -2,6 +2,7 @@ import { LangfuseClient } from "@langfuse/client";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
+import { readdir } from "node:fs/promises";
 
 const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
 const secretKey = process.env.LANGFUSE_SECRET_KEY;
@@ -12,24 +13,57 @@ const langfuse = new LangfuseClient({
   baseUrl,
 });
 
-async function fetchLangfuseData(page: number, limit: number) {
+const STATE_FILE = "data/fetch_state.json";
+const DATA_DIR = "data";
+
+interface FetchState {
+  lastProcessedTimestamp: string | null;
+  totalQuestionsProcessed: number;
+}
+
+async function loadState(): Promise<FetchState> {
+  try {
+    const file = Bun.file(STATE_FILE);
+    if (await file.exists()) {
+      return await file.json();
+    }
+  } catch {
+    console.log("No previous state found, starting fresh");
+  }
+  return { lastProcessedTimestamp: null, totalQuestionsProcessed: 0 };
+}
+
+async function saveState(state: FetchState): Promise<void> {
+  await Bun.write(STATE_FILE, JSON.stringify(state, null, 2));
+}
+
+async function fetchLangfuseData(
+  page: number,
+  limit: number,
+  fromTimestamp?: string
+) {
   const response = await langfuse.api.trace.list({
     page: page,
     limit: limit,
+    ...(fromTimestamp && { fromTimestamp }),
   });
   return response;
 }
 
-async function fetchAllTraces() {
+async function fetchNewTraces(fromTimestamp: string | null) {
   let allTraces: any[] = [];
   let page = 1;
-  const limit = 100; // Number of traces per page
+  const limit = 100;
 
   while (true) {
-    const response = await fetchLangfuseData(page, limit);
+    const response = await fetchLangfuseData(
+      page,
+      limit,
+      fromTimestamp || undefined
+    );
     allTraces = [...allTraces, response.data];
     if (response.data.length < limit) {
-      break; // No more pages to fetch
+      break;
     }
     page++;
   }
@@ -37,7 +71,15 @@ async function fetchAllTraces() {
   return allTraces.flat();
 }
 
-const BATCH_SIZE = 30; // Numero di domande per batch
+function getDateString(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}_${month}_${day}`;
+}
+
+const BATCH_SIZE = 30;
 
 const CATEGORIES = [
   "Scadenze e Tempistiche",
@@ -98,7 +140,6 @@ REGOLE IMPORTANTI:
     text: { format: zodTextFormat(Results, "Results") },
   });
 
-  // Flatten results: ogni domanda con la sua categoria
   const classified: { category: string; question: string }[] = [];
   for (const item of response?.output_parsed?.results || []) {
     for (const question of item.questions) {
@@ -108,21 +149,97 @@ REGOLE IMPORTANTI:
   return classified;
 }
 
-async function main() {
-  console.log("Fetching Langfuse data...");
+async function aggregateAllCsvFiles(): Promise<void> {
+  console.log("\nAggregating all CSV files...");
 
-  const traces = await fetchAllTraces();
+  const files = await readdir(DATA_DIR);
+  const csvFiles = files.filter(
+    (f) => f.startsWith("categories_stats_") && f.endsWith(".csv")
+  );
+
+  if (csvFiles.length === 0) {
+    console.log("No dated CSV files found to aggregate");
+    return;
+  }
+
+  const categoryTotals = new Map<string, number>();
+
+  for (const csvFile of csvFiles) {
+    const content = await Bun.file(`${DATA_DIR}/${csvFile}`).text();
+    const lines = content.trim().split("\n");
+
+    // Skip header
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const [category, countStr] = line.split(",");
+      if (!category || !countStr) continue;
+      const count = parseInt(countStr, 10);
+      if (!isNaN(count)) {
+        const current = categoryTotals.get(category) || 0;
+        categoryTotals.set(category, current + count);
+      }
+    }
+  }
+
+  // Sort by count descending
+  const aggregated = Array.from(categoryTotals.entries())
+    .map(([category, num_questions]) => ({ category, num_questions }))
+    .sort((a, b) => b.num_questions - a.num_questions);
+
+  const stats = [
+    "category,num_questions",
+    ...aggregated.map((row) => `${row.category},${row.num_questions}`),
+  ];
+
+  await Bun.write(`${DATA_DIR}/categories_stats.csv`, stats.join("\n"));
+  console.log(
+    `Aggregated ${csvFiles.length} files into data/categories_stats.csv`
+  );
+  console.log("Aggregated totals:", aggregated);
+}
+
+async function main() {
+  console.log("Loading previous state...");
+  const state = await loadState();
+  console.log(
+    `Previous state: ${state.totalQuestionsProcessed} questions processed`
+  );
+  if (state.lastProcessedTimestamp) {
+    console.log(`Last processed timestamp: ${state.lastProcessedTimestamp}`);
+  }
+
+  console.log("\nFetching new Langfuse data...");
+  const traces = await fetchNewTraces(state.lastProcessedTimestamp);
   console.log("Fetched traces:", traces.length);
+
+  if (traces.length === 0) {
+    console.log("No new traces to process");
+    await aggregateAllCsvFiles();
+    return;
+  }
 
   const questions = traces
     .map((trace) => trace.input?.query)
     .filter((q): q is string => q !== undefined);
 
-  console.log("Total questions to classify:", questions.length);
+  console.log("New questions to classify:", questions.length);
+
+  if (questions.length === 0) {
+    console.log("No new questions to classify");
+    // Update state with latest timestamp anyway
+    const latestTimestamp = traces[0]?.timestamp;
+    if (latestTimestamp) {
+      state.lastProcessedTimestamp = latestTimestamp;
+      await saveState(state);
+    }
+    await aggregateAllCsvFiles();
+    return;
+  }
 
   const client = new OpenAI();
 
-  // Dividi le domande in batch
+  // Divides questions into batches
   const batches: string[][] = [];
   for (let i = 0; i < questions.length; i += BATCH_SIZE) {
     batches.push(questions.slice(i, i + BATCH_SIZE));
@@ -132,7 +249,7 @@ async function main() {
     `Processing ${batches.length} batches of ~${BATCH_SIZE} questions each...`
   );
 
-  // Classifica ogni batch
+  // Classifies each batch
   const allClassified: { category: string; question: string }[] = [];
   let batchIndex = 0;
   for (const batch of batches) {
@@ -149,14 +266,14 @@ async function main() {
     `\nTotal classified: ${allClassified.length}/${questions.length} questions`
   );
 
-  // Aggrega per categoria
+  // Aggregates by category
   const categoryMap = new Map<string, number>();
   for (const item of allClassified) {
     const current = categoryMap.get(item.category) || 0;
     categoryMap.set(item.category, current + 1);
   }
 
-  // Converti in array e ordina per numero di domande (decrescente)
+  // Converts to array and sorts by number of questions (descending)
   const data = Array.from(categoryMap.entries())
     .map(([category, num_questions]) => ({ category, num_questions }))
     .sort((a, b) => b.num_questions - a.num_questions);
@@ -168,8 +285,23 @@ async function main() {
     ...data.map((row) => `${row.category},${row.num_questions}`),
   ];
 
-  await Bun.write(`data/categories_stats.csv`, stats.join("\n"));
-  console.log("\nSaved to data/categories_stats.csv");
+  // Save with date in filename
+  const dateString = getDateString();
+  const dailyFile = `${DATA_DIR}/categories_stats_${dateString}.csv`;
+  await Bun.write(dailyFile, stats.join("\n"));
+  console.log(`\nSaved to ${dailyFile}`);
+
+  // Update state
+  const latestTimestamp = traces[0]?.timestamp;
+  if (latestTimestamp) {
+    state.lastProcessedTimestamp = latestTimestamp;
+  }
+  state.totalQuestionsProcessed += questions.length;
+  await saveState(state);
+  console.log(`\nState updated: ${state.totalQuestionsProcessed} total questions processed`);
+
+  // Aggregate all CSV files
+  await aggregateAllCsvFiles();
 }
 
 (async () => {
