@@ -45,7 +45,8 @@ async function main() {
 			return trace.input?.query;
 		})
 		.filter((q) => q !== undefined);
-	await Bun.write("data/questions.json", JSON.stringify(questions, null, 2));
+	const name = `${Date.now()}-questions.json`;
+	await Bun.write(`data/${name}`, JSON.stringify(questions, null, 2));
 }
 
 (async () => {
