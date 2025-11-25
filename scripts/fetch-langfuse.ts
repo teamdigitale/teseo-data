@@ -47,6 +47,12 @@ async function main() {
 		.filter((q) => q !== undefined);
 	const name = `${Date.now()}-questions.json`;
 	await Bun.write(`data/${name}`, JSON.stringify(questions, null, 2));
+
+	//  const model
+	// model.invoke (prompt , questions, )
+
+	// results = await model.invoke("Summarize the following questions into categories:", questions);
+
 }
 
 (async () => {
