@@ -76,17 +76,17 @@ async function main() {
 		],
 		text: { format: zodTextFormat(Results, "Results") },
 	});
-	console.log("Classified data:", response.output_parsed);
+	// console.log("Classified data:", response.output_parsed);
 	const data = response?.output_parsed?.results?.map((item) => {
 		return {
 			category: item.category,
-			questions: item.questions.length,
+			num_questions: item.questions.length,
 		};
 	});
-	console.log("Classified data:", data);
+	console.log("Stats data:", data);
 
 	const stats = [
-		...Object.keys(data[0]).join(","),
+		"category,num_questions",
 		...data.map((row) => Object.values(row).join(",")),
 	];
 
