@@ -38,7 +38,7 @@ async function main() {
 	// const traces = await langfuse.api.trace.list();
 	const traces = await fetchAllTraces();
 
-	await Bun.write("data/traces.json", JSON.stringify(traces, null, 2));
+	// await Bun.write("data/traces.json", JSON.stringify(traces, null, 2));
 	console.log("Fetched traces:", traces.length);
 	const questions = traces
 		.map((trace) => {
