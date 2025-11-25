@@ -21,13 +21,13 @@ jobs:
         run: bun install
       - name: Run langfuse fetcher
         run: bun run fetch-langfuse.ts
-      - name: Commit
-        uses: EndBug/add-and-commit@v9
-        with:
-          message: "Aggiunti nuove query da Langfuse"
-          add: "data"
         env:
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+      - name: Commit
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "Aggiunti nuove query da Langfuse"
+          add: "data"
