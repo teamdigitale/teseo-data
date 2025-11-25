@@ -6,7 +6,7 @@ defaults:
 
 on:
   schedule:
-    - cron: 10 15 * * *
+    - cron: 30 0 * * *
   workflow_dispatch:
 
 jobs:
@@ -24,3 +24,5 @@ jobs:
         env:
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
