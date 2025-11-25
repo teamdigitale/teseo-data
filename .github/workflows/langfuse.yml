@@ -29,5 +29,5 @@ jobs:
       - name: Commit
         uses: EndBug/add-and-commit@v9
         with:
-          message: "lista delle query"
-          add: "data/questions.json"
+          message: "stats on query categories"
+          add: "data/categories.json"

@@ -1,5 +1,7 @@
 import { LangfuseClient } from "@langfuse/client";
 import OpenAI from "openai";
+import { zodTextFormat } from "openai/helpers/zod";
+import { z } from "zod";
 
 const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
 const secretKey = process.env.LANGFUSE_SECRET_KEY;
@@ -50,6 +52,14 @@ async function main() {
 
 	const client = new OpenAI();
 
+	const Results = z.object({
+		results: z.array(
+			z.object({
+				category: z.string(),
+				questions: z.array(z.string()),
+			}),
+		),
+	});
 	const response = await client.responses.parse({
 		model: process.env.OPENAI_MODEL || "gpt-4o",
 		input: [
@@ -64,13 +74,23 @@ async function main() {
 						${questions.join("\n- ")}`,
 			},
 		],
-		text: { format: { type: "json_object" } },
+		text: { format: zodTextFormat(Results, "Results") },
 	});
-
-	const data = response.output_parsed;
+	console.log("Classified data:", response.output_parsed);
+	const data = response?.output_parsed?.results?.map((item) => {
+		return {
+			category: item.category,
+			questions: item.questions.length,
+		};
+	});
 	console.log("Classified data:", data);
 
-	await Bun.write(`data/questions.json`, JSON.stringify(data, null, 2));
+	const stats = [
+		...Object.keys(data[0]).join(","),
+		...data.map((row) => Object.values(row).join(",")),
+	];
+
+	await Bun.write(`data/categories.csv`, stats.join("\n"));
 }
 
 (async () => {
