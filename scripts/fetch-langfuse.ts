@@ -90,7 +90,7 @@ async function main() {
 		...data.map((row) => Object.values(row).join(",")),
 	];
 
-	await Bun.write(`data/categories.csv`, stats.join("\n"));
+	await Bun.write(`data/categories_stats.csv`, stats.join("\n"));
 }
 
 (async () => {
