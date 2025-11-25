@@ -46,12 +46,11 @@ async function main() {
 			return trace.input?.query;
 		})
 		.filter((q) => q !== undefined);
-	const name = `questions.json`; //${Date.now()}-
-	await Bun.write(`data/${name}`, JSON.stringify(questions, null, 2));
+	// await Bun.write(`data/questions.json`, JSON.stringify(questions, null, 2));
 
 	const client = new OpenAI();
 
-	const response = await client.responses.create({
+	const response = await client.responses.parse({
 		model: process.env.OPENAI_MODEL || "gpt-4o",
 		input: [
 			{
@@ -65,11 +64,13 @@ async function main() {
 						${questions.join("\n- ")}`,
 			},
 		],
+		text: { format: { type: "json_object" } },
 	});
 
-	console.log(response.output_text);
+	const data = response.output_parsed;
+	console.log("Classified data:", data);
 
-	// results = await model.invoke("Summarize the following questions into categories:", questions);
+	await Bun.write(`data/questions.json`, JSON.stringify(data, null, 2));
 }
 
 (async () => {
