@@ -10,6 +10,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@langfuse/client": "^4.4.2"
+    "@langfuse/client": "^4.4.2",
+    "openai": "^6.9.1"
   }
 }

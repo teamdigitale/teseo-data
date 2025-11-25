@@ -1,4 +1,5 @@
 import { LangfuseClient } from "@langfuse/client";
+import OpenAI from "openai";
 
 const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
 const secretKey = process.env.LANGFUSE_SECRET_KEY;
@@ -48,8 +49,24 @@ async function main() {
 	const name = `${Date.now()}-questions.json`;
 	await Bun.write(`data/${name}`, JSON.stringify(questions, null, 2));
 
-	//  const model
-	// model.invoke (prompt , questions, )
+
+
+	const client = new OpenAI();
+
+const response = await client.responses.create({
+		model:process.env.OPENAI_MODEL || "gpt-4o",
+    input:[
+        {"role": "system", "content": "Sei un esperto classificatore di domande per un chatbot interno di un dipartimento digitale collegato a tematiche e servizi legati alle misure PNRR. Il tuo compito è assegnare a ciascuna domanda UNA categoria che riassuma il suo tema principale. Cerca di aggregare e raggruppare il più possibile i temi simili sotto la stessa categoria generale. Evita di usare categorie troppo specifiche: cerca di normalizzare i titoli, utilizzando etichette che possano raggruppare domande anche diverse ma simili (ad esempio: 'Pagamenti', 'Digitalizzazione', 'Assistenza', 'Contratti', 'Cloud', 'Ruoli/Governance', ecc.). Rispondi solo con il nome della categoria aggregata, senza ulteriori spiegazioni."},
+        {
+            "role": "user",
+            "content": `Lista delle domande:  
+						${questions.join("\n- ")}`,
+        },
+    ],
+});
+
+
+console.log(response.choices[0].message?.content);
 
 	// results = await model.invoke("Summarize the following questions into categories:", questions);
 
