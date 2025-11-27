@@ -97,6 +97,11 @@ const CATEGORIES = [
   "Linee Guida e Requisiti",
   "Pagamenti e Rimborsi",
   "Feedback e Suggerimenti",
+  "Misura 1.1",
+  "Misura 1.2",
+  "Misura 1.4.1",
+  "PA Digitale 2026",
+  "U.S3"
 ] as const;
 
 async function classifyBatch(
