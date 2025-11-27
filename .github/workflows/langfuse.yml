@@ -40,3 +40,5 @@ jobs:
           add: |
             data/*.csv
             data/*.json
+            data/exp/*.csv
+            data/exp/*.json

@@ -2,7 +2,7 @@ import { LangfuseClient } from "@langfuse/client";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
-import { readdir } from "node:fs/promises";
+import { readdir, mkdir } from "node:fs/promises";
 
 const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
 const secretKey = process.env.LANGFUSE_SECRET_KEY;
@@ -13,8 +13,12 @@ const langfuse = new LangfuseClient({
   baseUrl,
 });
 
-const STATE_FILE = "data/fetch_state_exp.json";
-const DATA_DIR = "data";
+const DATA_DIR = "data/exp";
+const STATE_FILE = `${DATA_DIR}/fetch_state.json`;
+
+async function ensureDataDir(): Promise<void> {
+  await mkdir(DATA_DIR, { recursive: true });
+}
 
 interface FetchState {
   lastProcessedTimestamp: string | null;
@@ -139,7 +143,7 @@ async function aggregateAllCsvFiles(): Promise<void> {
 
   const files = await readdir(DATA_DIR);
   const csvFiles = files.filter(
-    (f) => f.startsWith("categories_stats_exp_") && f.endsWith(".csv")
+    (f) => f.startsWith("categories_stats_") && f.endsWith(".csv") && f !== "categories_stats.csv"
   );
 
   if (csvFiles.length === 0) {
@@ -177,15 +181,18 @@ async function aggregateAllCsvFiles(): Promise<void> {
     ...aggregated.map((row) => `${row.category},${row.num_questions}`),
   ];
 
-  await Bun.write(`${DATA_DIR}/categories_stats_exp.csv`, stats.join("\n"));
+  await Bun.write(`${DATA_DIR}/categories_stats.csv`, stats.join("\n"));
   console.log(
-    `Aggregated ${csvFiles.length} files into data/categories_stats_exp.csv`
+    `Aggregated ${csvFiles.length} files into ${DATA_DIR}/categories_stats.csv`
   );
   console.log("Aggregated totals:", aggregated);
 }
 
 async function main() {
   console.log("=== EXPERIMENTAL MODE: Auto-generated categories ===\n");
+  
+  await ensureDataDir();
+  
   console.log("Loading previous state...");
   const state = await loadState();
   console.log(
@@ -274,7 +281,7 @@ async function main() {
 
   // Save with date in filename
   const dateString = getDateString();
-  const dailyFile = `${DATA_DIR}/categories_stats_exp_${dateString}.csv`;
+  const dailyFile = `${DATA_DIR}/categories_stats_${dateString}.csv`;
   await Bun.write(dailyFile, stats.join("\n"));
   console.log(`\nSaved to ${dailyFile}`);
 
