@@ -3,6 +3,10 @@ import collections
 from collections.abc import Hashable
 collections.Hashable = Hashable  # type: ignore
 
+# Forza flush immediato di tutti i print (per vedere log in tempo reale su GitHub Actions)
+import functools
+print = functools.partial(print, flush=True)
+
 # --- Import principali ---
 from presidio_analyzer import AnalyzerEngine
 from presidio_anonymizer import AnonymizerEngine
