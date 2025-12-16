@@ -171,21 +171,23 @@ async function aggregateAllCsvFiles(): Promise<void> {
     }
   }
 
-  // Sort by count descending
+  // Sort by count descending and take top 10
   const aggregated = Array.from(categoryTotals.entries())
     .map(([category, num_questions]) => ({ category, num_questions }))
     .sort((a, b) => b.num_questions - a.num_questions);
 
+  const top10 = aggregated.slice(0, 10);
+
   const stats = [
     "category,num_questions",
-    ...aggregated.map((row) => `${row.category},${row.num_questions}`),
+    ...top10.map((row) => `${row.category},${row.num_questions}`),
   ];
 
   await Bun.write(`${DATA_DIR}/categories_stats.csv`, stats.join("\n"));
   console.log(
-    `Aggregated ${csvFiles.length} files into ${DATA_DIR}/categories_stats.csv`
+    `Aggregated ${csvFiles.length} files into ${DATA_DIR}/categories_stats.csv (top 10 categories)`
   );
-  console.log("Aggregated totals:", aggregated);
+  console.log("Top 10 categories:", top10);
 }
 
 async function main() {
