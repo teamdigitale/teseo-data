@@ -1,4 +1,7 @@
 presidio-analyzer
 presidio-anonymizer
 faker
+openai
+python-dotenv
 
+# SpaCy models for Italian and English (install with: python -m spacy download it_core_news_lg && python -m spacy download en_core_web_lg)
