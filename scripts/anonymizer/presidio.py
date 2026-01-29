@@ -643,19 +643,63 @@ def process_csv(
     
     stats["kept_rows"] = len(final_rows)
     
-    # Write output CSV
-    logger.info("=" * 60)
-    logger.info(f"Writing output file: {output_path}")
-    logger.info("=" * 60)
+    # Add URL column to each row
+    CASE_URL_TEMPLATE = "https://padigitale2026.lightning.force.com/lightning/r/Case/{id}/view"
+    
+    for row in final_rows:
+        case_id = row.get("Id", "")
+        if case_id:
+            row["url"] = CASE_URL_TEMPLATE.format(id=case_id)
+        else:
+            row["url"] = ""
+    
+    # Add 'url' to fieldnames
+    output_fieldnames = list(fieldnames) + ["url"]
     
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
+    # Write daily output CSV
+    logger.info("=" * 60)
+    logger.info(f"Writing daily output file: {output_path}")
+    logger.info("=" * 60)
+    
     with open(output_path, "w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=output_fieldnames)
         writer.writeheader()
         writer.writerows(final_rows)
     
-    logger.info(f"Output file written successfully: {output_path}")
+    logger.info(f"Daily output file written successfully: {output_path}")
+    
+    # Append to master file (output_case.csv), avoiding duplicates
+    master_path = output_path.parent / "output_case.csv"
+    logger.info("=" * 60)
+    logger.info(f"Appending to master file: {master_path}")
+    logger.info("=" * 60)
+    
+    # Load existing IDs from master file to avoid duplicates
+    existing_ids = set()
+    if master_path.exists():
+        with open(master_path, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                existing_ids.add(row.get("Id", ""))
+        logger.info(f"Master file exists with {len(existing_ids)} existing records")
+    
+    # Filter out rows already in master
+    new_rows = [row for row in final_rows if row.get("Id", "") not in existing_ids]
+    
+    if new_rows:
+        # Append new rows to master file
+        file_exists = master_path.exists()
+        with open(master_path, "a", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=output_fieldnames)
+            if not file_exists:
+                writer.writeheader()
+            writer.writerows(new_rows)
+        
+        logger.info(f"Appended {len(new_rows)} new records to master file (skipped {len(final_rows) - len(new_rows)} duplicates)")
+    else:
+        logger.info(f"No new records to append (all {len(final_rows)} already in master)")
     
     return stats
 

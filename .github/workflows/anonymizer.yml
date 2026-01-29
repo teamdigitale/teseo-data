@@ -12,27 +12,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      
       - name: Install Python dependencies
         run: |
           echo "📦 Installing Presidio and dependencies..."
           pip install -r scripts/anonymizer/requirements.txt
           echo "✅ Dependencies installed"
-      - name: Download spaCy model
+      
+      - name: Download spaCy models
         run: |
-          echo "🔽 Downloading spaCy model (en_core_web_lg ~400MB)..."
+          echo "🔽 Downloading spaCy Italian model (it_core_news_lg ~570MB)..."
+          python -m spacy download it_core_news_lg
+          echo "🔽 Downloading spaCy English model (en_core_web_lg ~400MB)..."
           python -m spacy download en_core_web_lg
-          echo "✅ spaCy model downloaded"
-      - name: Run anonymizer (Presidio)
+          echo "✅ spaCy models downloaded"
+      
+      - name: Run anonymizer (Presidio + AI)
+        env:
+          OVH_API_URL: ${{ secrets.OVH_API_URL }}
+          OVH_API_KEY: ${{ secrets.OVH_API_KEY }}
+          OVH_MODEL: ${{ secrets.OVH_MODEL }}
         run: |
           echo "🔐 Starting anonymization..."
           python scripts/anonymizer/presidio.py
-      - name: Commit
+          echo "✅ Anonymization complete"
+      
+      - name: Commit and push
         uses: EndBug/add-and-commit@v9
         with:
-          message: "anonymized data"
+          message: "chore: anonymized data"
           add: |
             data/anonymized/*.csv
+          push: true
 
