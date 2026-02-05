@@ -54,6 +54,7 @@ ENTITY_TYPES = [
     "IT_PASSPORT",
     "IT_VAT_CODE",
     "CREDIT_CARD",
+    "CODICE_TESORIERA",
 ]
 
 # Mapping from Presidio entity types to our tag names
@@ -69,6 +70,7 @@ TAG_MAPPING = {
     "IT_PASSPORT": "FAKE_DOCUMENTO",
     "IT_VAT_CODE": "FAKE_PARTITA_IVA",
     "CREDIT_CARD": "FAKE_CARTA_CREDITO",
+    "CODICE_TESORIERA": "FAKE_CODICE_TESORIERA",  # replaced with PREFIX-XXX-XXXXXX
 }
 
 # Threshold for tag percentage (rows with >= this % of tags will be removed)
@@ -174,6 +176,31 @@ def create_italian_phone_recognizer() -> PatternRecognizer:
     )
 
 
+# Regex for codice tesoriera (e.g. TU-138-181002 → TU-XXX-XXXXXX)
+CODICE_TESORIERA_REGEX = r"\b([A-Z]{2,3})-\d+-\d{6}\b"
+
+
+def _redact_codice_tesoriera(matched_text: str) -> str:
+    """Replace codice tesoriera with PREFIX-XXX-XXXXXX (preserves 2–3 letter prefix)."""
+    m = re.match(r"^([A-Z]{2,3})", matched_text)
+    prefix = m.group(1) if m else "XX"
+    return f"{prefix}-XXX-XXXXXX"
+
+
+def create_codice_tesoriera_recognizer() -> PatternRecognizer:
+    """Create a recognizer for codici tesoriera (e.g. TU-138-181002)."""
+    pattern = Pattern(
+        name="codice_tesoriera",
+        regex=CODICE_TESORIERA_REGEX,
+        score=0.9,
+    )
+    return PatternRecognizer(
+        supported_entity="CODICE_TESORIERA",
+        patterns=[pattern],
+        supported_language="it",
+    )
+
+
 def setup_analyzer() -> AnalyzerEngine:
     """Initialize Presidio analyzer with Italian language support."""
     logger.info("Setting up Presidio analyzer with Italian NLP...")
@@ -201,6 +228,11 @@ def setup_analyzer() -> AnalyzerEngine:
     italian_phone_recognizer = create_italian_phone_recognizer()
     registry.add_recognizer(italian_phone_recognizer)
     logger.info("Added custom Italian phone number recognizer")
+
+    # Add codice tesoriera recognizer (e.g. TU-138-181002 → TU-XXX-XXXXXX)
+    codice_tesoriera_recognizer = create_codice_tesoriera_recognizer()
+    registry.add_recognizer(codice_tesoriera_recognizer)
+    logger.info("Added custom codice tesoriera recognizer")
     
     # Create analyzer with the NLP engine and custom registry
     analyzer = AnalyzerEngine(
@@ -251,8 +283,13 @@ def anonymize_text(
     # Create operator configs for each entity type
     operators = {}
     for entity_type in ENTITY_TYPES:
-        tag = TAG_MAPPING.get(entity_type, f"FAKE_{entity_type}")
-        operators[entity_type] = OperatorConfig("replace", {"new_value": f"[{tag}]"})
+        if entity_type == "CODICE_TESORIERA":
+            operators[entity_type] = OperatorConfig(
+                "custom", {"lambda": _redact_codice_tesoriera}
+            )
+        else:
+            tag = TAG_MAPPING.get(entity_type, f"FAKE_{entity_type}")
+            operators[entity_type] = OperatorConfig("replace", {"new_value": f"[{tag}]"})
     
     # Anonymize
     anonymized_result = anonymizer.anonymize(
