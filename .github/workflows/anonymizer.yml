@@ -40,6 +40,14 @@ jobs:
           echo "🔐 Starting anonymization..."
           python scripts/anonymizer/presidio.py
           echo "✅ Anonymization complete"
+
+      - name: Generate output_case.txt from output_case.csv
+        run: |
+          echo "📄 Generating output_case.txt (overwrite)..."
+          python scripts/anonymizer/csv_to_paragraphs.py \
+            --input data/anonymized/output_case.csv \
+            --output data/anonymized/output_case.txt
+          echo "✅ output_case.txt generated"
       
       - name: Commit and push
         uses: EndBug/add-and-commit@v9
@@ -47,6 +55,7 @@ jobs:
           message: "chore: anonymized data"
           add: |
             data/anonymized/*.csv
+            data/anonymized/output_case.txt
           push: true
 
       - name: Dispatch to teseo-ingestion
