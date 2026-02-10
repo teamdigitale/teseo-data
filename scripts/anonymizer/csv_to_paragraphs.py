@@ -34,22 +34,26 @@ def is_empty(value: str) -> bool:
 
 
 def row_to_paragraph(
-    row: dict, separator: str, columns: list[str] | None = None
+    row: dict,
+    separator: str,
+    require_columns: list[str] | None = None,
+    output_columns: list[str] | None = None,
 ) -> str | None:
     """
     Convert a CSV row to paragraph format.
-    Returns None if any relevant cell value is empty (row should be skipped).
+    Returns None if any required cell is empty (row should be skipped).
 
-    If columns is given, only those columns are included and required to be non-empty.
-    Otherwise all columns are included and every cell must be non-empty.
+    - require_columns: row is skipped if any of these is empty. If None and output_columns
+      is set, those are required; if both None, all columns are required.
+    - output_columns: columns to write in the paragraph. If None, all keys from row.
     """
-    keys = columns if columns is not None else list(row.keys())
-    lines = []
-    for col in keys:
-        val = row.get(col, "")
-        if is_empty(val):
+    out_cols = output_columns if output_columns is not None else list(row.keys())
+    require = require_columns if require_columns is not None else out_cols
+
+    for col in require:
+        if is_empty(row.get(col, "")):
             return None
-        lines.append(f"{col}: {val.strip()}")
+    lines = [f"{col}: {(row.get(col, '') or '').strip()}" for col in out_cols]
     return "\n".join(lines) + "\n" + separator
 
 
@@ -58,12 +62,16 @@ def csv_to_paragraphs(
     output_path: Path,
     separator: str = DEFAULT_SEPARATOR,
     columns: list[str] | None = None,
+    require_columns: list[str] | None = None,
 ) -> tuple[int, int]:
     """
     Read CSV, write paragraphs to .txt.
     Returns (rows_read, paragraphs_written).
 
-    If columns is set, only those columns are written and required to be non-empty.
+    - columns: deprecated, use require_columns + output all columns. If set, only these
+      columns are required and written (backward compatible).
+    - require_columns: row included only if these columns are non-empty. Output: all
+      CSV columns. Use with columns=None to get all columns in output.
     """
     rows_read = 0
     paragraphs_written = 0
@@ -76,8 +84,18 @@ def csv_to_paragraphs(
             rows_read += 1
             ordered_row = {k: row.get(k, "") for k in fieldnames}
             if columns is not None:
-                ordered_row = {k: ordered_row.get(k, "") for k in columns}
-            block = row_to_paragraph(ordered_row, separator, columns)
+                # Backward compat: require and output only these
+                block = row_to_paragraph(
+                    ordered_row, separator, require_columns=columns, output_columns=columns
+                )
+            else:
+                # Require only require_columns (if set), output all columns
+                block = row_to_paragraph(
+                    ordered_row,
+                    separator,
+                    require_columns=require_columns or fieldnames,
+                    output_columns=fieldnames,
+                )
             if block is not None:
                 paragraphs.append(block)
                 paragraphs_written += 1
@@ -122,20 +140,35 @@ def main() -> int:
         type=str,
         default=None,
         metavar="COL1,COL2,...",
-        help="Use only these columns (comma-separated). Row is skipped only if one of these is empty.",
+        help="(Deprecated) Require and output only these columns. Prefer --require and output all.",
+    )
+    parser.add_argument(
+        "--require",
+        "-r",
+        type=str,
+        default=None,
+        metavar="COL1,COL2,...",
+        help="Require these columns non-empty to include row. Output: all CSV columns.",
     )
     args = parser.parse_args()
 
     columns = None
     if args.columns:
         columns = [c.strip() for c in args.columns.split(",") if c.strip()]
+    require_columns = None
+    if args.require:
+        require_columns = [c.strip() for c in args.require.split(",") if c.strip()]
 
     if not args.input.exists():
         print(f"Error: input file not found: {args.input}", file=sys.stderr)
         return 1
 
     rows_read, paragraphs_written = csv_to_paragraphs(
-        args.input, args.output, args.separator, columns=columns
+        args.input,
+        args.output,
+        args.separator,
+        columns=columns,
+        require_columns=require_columns,
     )
     print(f"Read {rows_read} rows, wrote {paragraphs_written} paragraphs to {args.output}")
     return 0

@@ -46,7 +46,8 @@ jobs:
           echo "📄 Generating output_case.txt (overwrite)..."
           python scripts/anonymizer/csv_to_paragraphs.py \
             --input data/anonymized/output_case.csv \
-            --output data/anonymized/output_case.txt
+            --output data/anonymized/output_case.txt \
+            --require "Id,CaseNumber,Subject,Description,Risoluzione__c"
           echo "✅ output_case.txt generated"
       
       - name: Commit and push
