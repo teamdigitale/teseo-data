@@ -67,7 +67,7 @@ jobs:
             repos/teamdigitale/teseo-ingestion/dispatches \
             -f event_type=upload \
             -f "client_payload[repository]=${{ github.repository }}" \
-            -f "client_payload[path]=data/anonymized/output_case.csv" \
+            -f "client_payload[path]=data/anonymized/output_case.txt" \
             -f "client_payload[wrike_attachment_id]=IEAEPV5EIYUD5FTL" \
             -f "client_payload[wrike_task_id]=MAAAAAEDvEqW"
           echo "✅ Dispatch sent to teseo-ingestion"
