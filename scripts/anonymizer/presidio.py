@@ -128,6 +128,20 @@ DENYLIST_FRASI_RISPOSTA = [
     "non abbiamo informazioni",
     "non possiamo fornire dettagli",
     "non sappiamo dirvi",
+    # Case puntuali: conferme generiche / risoluzioni minimali
+    "è stata risolta",
+    "la tua segnalazione è stata risolta",
+    "richiesta di proroga da te sottomessa è stata regolarmente accettata",
+    "puoi pertanto ancora operare in piattaforma",
+    "documenti relativi alla richiesta di erogazione risultano correttamente caricati",
+    "non risulta inviata la richiesta di erogazione",
+    "dovrai accedere allo step 5",
+    "cliccare sul tasto",
+    "scaricando nuovamente il pdf",
+    "firmandolo digitalmente e caricandolo in piattaforma",
+    "sui nostri sistemi risulta",
+    "descrizione soluzione:",
+    "se dovesse occorrere una problematica, ti preghiamo di aprire una nuova richiesta",
 ]
 
 
@@ -411,15 +425,18 @@ Dati da cercare e sostituire:
 
 NON sostituire: nomi di enti pubblici, PA, comuni, misure PNRR, date, codici IPA.
 
-## COMPITO 2: VALUTAZIONE UTILITÀ
-UTILE: contiene procedure, istruzioni, risposte informative, soluzioni.
-NON UTILE: solo richieste senza risposta, dati personali senza contesto, messaggi generici.
+## COMPITO 2: CASE PUNTUALE vs CONTENUTO PER LA KNOWLEDGE BASE
+Decidi se la riga è un CASE PUNTUALE (risposta di supporto a un singolo ente su un problema specifico) da ESCLUDERE, oppure contenuto RIUTILIZZABILE da MANTENERE.
+
+MANTIENI: NO (escludi) se è un case puntuale: la risoluzione è soprattutto conferma che la pratica/segnalazione è stata gestita ("è stata risolta", "richiesta accettata", "documenti caricati"), istruzione minimale per quel caso ("vai allo step 5 e clicca Invia", "scarica, firma e ricarica"), o inoltro/citazione di risposta di un altro ufficio (testo tra virgolette, "sui nostri sistemi risulta"). In sintesi: risposta "a quell'ente, per quel caso" senza valore riutilizzabile per altri.
+
+MANTIENI: SI (mantieni) se la risposta contiene contenuto riutilizzabile: procedure chiare, eccezioni, criteri, passi dettagliati o spiegazioni di policy/requisiti che valgono in generale.
 
 ## FORMATO RISPOSTA (per ogni riga)
 Rispondi così per OGNI riga, una dopo l'altra:
 
 [RISULTATO n]
-UTILE: SI oppure NO
+MANTIENI: SI oppure NO
 TESTO: <testo corretto con sostituzioni, oppure INVARIATO se non servono modifiche>
 [/RISULTATO n]
 
@@ -452,7 +469,7 @@ Dove n è il numero della riga originale."""
                 
                 for line in content.split("\n"):
                     line = line.strip()
-                    if line.upper().startswith("UTILE:"):
+                    if line.upper().startswith("MANTIENI:"):
                         is_useful = "SI" in line.upper()
                     elif line.upper().startswith("TESTO:"):
                         text_part = line[6:].strip()
@@ -499,6 +516,7 @@ def process_csv(
     anonymizer: AnonymizerEngine,
     ai_client: Optional[OpenAI],
     limit: Optional[int] = None,
+    skip_master_append: bool = False,
 ) -> dict:
     """
     Process the CSV file, anonymizing and filtering rows.
@@ -707,36 +725,39 @@ def process_csv(
     
     logger.info(f"Daily output file written successfully: {output_path}")
     
-    # Append to master file (output_case.csv), avoiding duplicates
-    master_path = output_path.parent / "output_case.csv"
-    logger.info("=" * 60)
-    logger.info(f"Appending to master file: {master_path}")
-    logger.info("=" * 60)
-    
-    # Load existing IDs from master file to avoid duplicates
-    existing_ids = set()
-    if master_path.exists():
-        with open(master_path, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                existing_ids.add(row.get("Id", ""))
-        logger.info(f"Master file exists with {len(existing_ids)} existing records")
-    
-    # Filter out rows already in master
-    new_rows = [row for row in final_rows if row.get("Id", "") not in existing_ids]
-    
-    if new_rows:
-        # Append new rows to master file
-        file_exists = master_path.exists()
-        with open(master_path, "a", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=output_fieldnames)
-            if not file_exists:
-                writer.writeheader()
-            writer.writerows(new_rows)
+    # Append to master file (output_case.csv) only when not in test mode
+    if not skip_master_append:
+        master_path = output_path.parent / "output_case.csv"
+        logger.info("=" * 60)
+        logger.info(f"Appending to master file: {master_path}")
+        logger.info("=" * 60)
         
-        logger.info(f"Appended {len(new_rows)} new records to master file (skipped {len(final_rows) - len(new_rows)} duplicates)")
+        # Load existing IDs from master file to avoid duplicates
+        existing_ids = set()
+        if master_path.exists():
+            with open(master_path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    existing_ids.add(row.get("Id", ""))
+            logger.info(f"Master file exists with {len(existing_ids)} existing records")
+        
+        # Filter out rows already in master
+        new_rows = [row for row in final_rows if row.get("Id", "") not in existing_ids]
+        
+        if new_rows:
+            # Append new rows to master file
+            file_exists = master_path.exists()
+            with open(master_path, "a", encoding="utf-8", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=output_fieldnames)
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerows(new_rows)
+            
+            logger.info(f"Appended {len(new_rows)} new records to master file (skipped {len(final_rows) - len(new_rows)} duplicates)")
+        else:
+            logger.info(f"No new records to append (all {len(final_rows)} already in master)")
     else:
-        logger.info(f"No new records to append (all {len(final_rows)} already in master)")
+        logger.info("Test mode: skipping append to output_case.csv")
     
     return stats
 
@@ -794,7 +815,15 @@ def main():
     
     # Process the CSV
     logger.info("Starting CSV processing...")
-    stats = process_csv(INPUT_FILE, output_file, analyzer, anonymizer, ai_client, limit=args.test)
+    stats = process_csv(
+        INPUT_FILE,
+        output_file,
+        analyzer,
+        anonymizer,
+        ai_client,
+        limit=args.test,
+        skip_master_append=bool(args.test),
+    )
     
     # Print summary
     logger.info("=" * 60)

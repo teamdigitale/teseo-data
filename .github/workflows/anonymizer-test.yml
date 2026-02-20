@@ -1,0 +1,62 @@
+# Test run: process only N rows, generate only case_anonymized_YYYY_MM_DD_testN.csv
+# Does NOT touch output_case.csv, output_case.txt. No commit, no dispatch.
+name: anonymizer-test
+
+defaults:
+  run:
+    working-directory: .
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_limit:
+        description: "Number of rows to process (default 100)"
+        required: false
+        type: number
+        default: 100
+
+jobs:
+  anonymize-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          echo "📦 Installing Presidio and dependencies..."
+          pip install -r scripts/anonymizer/requirements.txt
+          echo "✅ Dependencies installed"
+
+      - name: Download spaCy models
+        run: |
+          echo "🔽 Downloading spaCy Italian model (it_core_news_lg ~570MB)..."
+          python -m spacy download it_core_news_lg
+          echo "🔽 Downloading spaCy English model (en_core_web_lg ~400MB)..."
+          python -m spacy download en_core_web_lg
+          echo "✅ spaCy models downloaded"
+
+      - name: Run anonymizer in test mode (no output_case.csv / output_case.txt)
+        env:
+          OVH_API_URL: ${{ secrets.OVH_API_URL }}
+          OVH_API_KEY: ${{ secrets.OVH_API_KEY }}
+          OVH_MODEL: ${{ secrets.OVH_MODEL }}
+        run: |
+          echo "🔐 Test mode: processing first ${{ inputs.test_limit }} rows..."
+          python scripts/anonymizer/presidio.py --test ${{ inputs.test_limit }}
+          echo "✅ Done. Only case_anonymized_*_test${{ inputs.test_limit }}.csv was written."
+
+      - name: Upload test output CSV as artifact
+        run: |
+          F=$(ls data/anonymized/case_anonymized_*_test*.csv 2>/dev/null | head -1)
+          if [ -n "$F" ]; then cp "$F" data/anonymized/case_anonymized_test_output.csv; fi
+        id: prepare-artifact
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: case_anonymized_test
+          path: data/anonymized/case_anonymized_test_output.csv
