@@ -5,6 +5,11 @@ defaults:
     working-directory: .
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/anonymizer/input/case.csv
   workflow_dispatch:
 
 jobs:
